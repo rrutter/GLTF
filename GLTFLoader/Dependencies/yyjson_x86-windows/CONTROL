@@ -1,0 +1,33 @@
+Package: yyjson
+Version: 0.9.0
+Depends: vcpkg-cmake:x64-windows, vcpkg-cmake-config:x64-windows
+Architecture: x86-windows
+Multi-Arch: same
+Abi: 7a7e6042d07f1b3c71c34e72a86e3805bc8869be206b2118c8956b5e1c3bac6e
+Description: A high performance JSON library written in ANSI C
+Default-Features: fast-fp-conv, non-standard, reader, writer
+
+Package: yyjson
+Feature: fast-fp-conv
+Architecture: x86-windows
+Multi-Arch: same
+Description: Build with custom floating-point number conversion
+
+Package: yyjson
+Feature: non-standard
+Architecture: x86-windows
+Multi-Arch: same
+Description: Build with support for non-standard JSON
+
+Package: yyjson
+Feature: reader
+Architecture: x86-windows
+Multi-Arch: same
+Description: Build with JSON reader
+
+Package: yyjson
+Feature: writer
+Depends: yyjson
+Architecture: x86-windows
+Multi-Arch: same
+Description: Build with JSON writer
