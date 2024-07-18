@@ -1,4 +1,5 @@
 #include "GLTFSkeleton.h"
+#include "PersonalGL.h"
 
 GLTFSkeleton::GLTFSkeleton(const GLTFMesh& meshManager, const GLTFNode& nodeManager, const GLTFAccessor& accessorManager, GLTFBuffer& bufferManager)
     : meshManager(meshManager), nodeManager(nodeManager), accessorManager(accessorManager), bufferManager(bufferManager) {
@@ -55,6 +56,7 @@ void GLTFSkeleton::initializeSkeleton() {
     normalizeWeights();
     calculateBoneTransforms();
     calculateJointMatrices();
+    validateJointIndices();
 }
 
 void GLTFSkeleton::parseSkin(const auto skin) {
@@ -115,25 +117,28 @@ void GLTFSkeleton::calculateBoneTransforms() {
     for (size_t i = 0; i < bones.size(); ++i) {
         Bone& bone = bones[i];
         bone.transform = nodeManager.getNodeTransform(nodeManager.getNodes()[bone.nodeIndex]);
-        bone.globalTransform = bone.transform;
 
         int parentIndex = bone.parentIndex;
         if (parentIndex >= 0) {
             bone.globalTransform = bones[parentIndex].globalTransform * bone.transform;
+        }
+        else {
+            bone.globalTransform = bone.transform; // Root node's global transform is its own transform
         }
     }
 }
 
 void GLTFSkeleton::calculateJointMatrices() {
     for (size_t i = 0; i < bones.size(); ++i) {
-        //jointMatrices[i] = bones[i].globalTransform * bones[i].inverseBindMatrix; //looks all messed up!
-        jointMatrices[i] = bones[i].globalTransform;
+        jointMatrices[i] = bones[i].globalTransform * bones[i].inverseBindMatrix; //looks all messed up!
+        //jointMatrices[i] = bones[i].globalTransform;
     }
 }
 
 void GLTFSkeleton::updateSkeleton(const std::vector<GLTFNode::Node>& nodes) {
     calculateBoneTransforms();
     calculateJointMatrices();
+    applySkinning();
 }
 
 const std::vector<glm::mat4>& GLTFSkeleton::getJointMatrices() const {
@@ -241,17 +246,106 @@ void GLTFSkeleton::loadVertices() {
                 const auto& jointsAccessor = accessorManager.getAccessors()[primitive.jointsAccessor];
                 const auto& jointsBufferView = bufferManager.getBufferViews()[jointsAccessor.bufferView];
                 const auto& jointsBuffer = bufferManager.getBuffers()[jointsBufferView.buffer];
-                const int* jointsData = reinterpret_cast<const int*>(&jointsBuffer.data[jointsBufferView.byteOffset + jointsAccessor.byteOffset]);
 
                 size_t vertexCount = positionAccessor.count;
                 std::vector<Vertex> vertices(vertexCount);
 
-                for (size_t i = 0; i < vertexCount; ++i) {
-                    vertices[i].position = glm::make_vec3(&positionData[i * 3]);
-                    vertices[i].normal = glm::make_vec3(&normalData[i * 3]);
-                    vertices[i].texCoord = glm::make_vec2(&texCoordData[i * 2]);
-                    vertices[i].weights = glm::make_vec4(&weightsData[i * 4]);
-                    vertices[i].joints = glm::ivec4(jointsData[i * 4], jointsData[i * 4 + 1], jointsData[i * 4 + 2], jointsData[i * 4 + 3]);
+                size_t numComponents;
+                std::string accessorType(jointsAccessor.type);
+                if (accessorType == "SCALAR") {
+                    numComponents = 1;
+                }
+                else if (accessorType == "VEC2") {
+                    numComponents = 2;
+                }
+                else if (accessorType == "VEC3") {
+                    numComponents = 3;
+                }
+                else if (accessorType == "VEC4") {
+                    numComponents = 4;
+                }
+                else {
+                    throw std::runtime_error("Unsupported accessor type for joints");
+                }
+
+                // Ensure correct alignment
+                size_t componentSize = 1; // GL_UNSIGNED_BYTE is 1 byte
+                if ((jointsAccessor.byteOffset % componentSize != 0) ||
+                    ((jointsAccessor.byteOffset + jointsBufferView.byteOffset) % componentSize != 0)) {
+                    throw std::runtime_error("Byte offset is not aligned with component size.");
+                }
+
+                // Check if byteStride is defined
+                size_t byteStride = jointsBufferView.byteStride == 0 ? numComponents * componentSize : jointsBufferView.byteStride;
+                if (byteStride % componentSize != 0) {
+                    throw std::runtime_error("Byte stride is not a multiple of component size.");
+                }
+
+                // Verify accessor fits within buffer view
+                size_t expectedSize = jointsAccessor.byteOffset + byteStride * (jointsAccessor.count - 1) + componentSize * numComponents;
+                if (expectedSize > jointsBufferView.byteLength) {
+                    throw std::runtime_error("Accessor does not fit within the buffer view.");
+                }
+
+                // Debug output to verify accessor and buffer info
+                std::cout << "Joint Accessor Info:\n";
+                std::cout << "Component Type: " << jointsAccessor.componentType << " (GL_UNSIGNED_BYTE expected)\n";
+                std::cout << "Type: " << accessorType << "\n";
+                std::cout << "Byte Offset: " << jointsAccessor.byteOffset << "\n";
+                std::cout << "Byte Length: " << jointsBufferView.byteLength << "\n";
+                std::cout << "Buffer View Byte Offset: " << jointsBufferView.byteOffset << "\n";
+                std::cout << "Count: " << jointsAccessor.count << "\n";
+                std::cout << "Buffer Byte Length: " << jointsBuffer.data.size() << "\n";
+                std::cout << "Byte Stride: " << byteStride << "\n";
+
+                if (jointsAccessor.componentType == GL_UNSIGNED_BYTE) {
+                    const uint8_t* jointsData = reinterpret_cast<const uint8_t*>(&jointsBuffer.data[jointsBufferView.byteOffset + jointsAccessor.byteOffset]);
+
+                    // Continue with processing the data if needed
+                    for (size_t i = 0; i < vertexCount; ++i) {
+                        vertices[i].position = glm::make_vec3(&positionData[i * 3]);
+                        vertices[i].normal = glm::make_vec3(&normalData[i * 3]);
+                        vertices[i].texCoord = glm::make_vec2(&texCoordData[i * 2]);
+                        vertices[i].weights = glm::make_vec4(&weightsData[i * 4]);
+
+                        glm::ivec4 joints(0);
+                        for (size_t j = 0; j < numComponents; ++j) {
+                            joints[j] = static_cast<int>(jointsData[i * byteStride + j]);
+                        }
+                        vertices[i].joints = joints;
+
+                        for (int j = 0; j < 4; ++j) {
+                            if (vertices[i].weights[j] == 0.0f && j < numComponents) {
+                                vertices[i].joints[j] = -1; // Marking unused joint slots with -1
+                            }
+                        }
+
+                        // Debug output for joint values above 50
+                        for (int j = 0; j < numComponents; ++j) {
+                            if (vertices[i].joints[j] > 51) {
+                                std::cerr << "Warning: Joint index " << vertices[i].joints[j] << " at vertex " << i << ", component " << j << " exceeds expected range (0-51).\n";
+                            }
+                        }
+                    }
+                }
+                else if (jointsAccessor.componentType == GL_UNSIGNED_SHORT) {
+                    const uint16_t* jointsData = reinterpret_cast<const uint16_t*>(&jointsBuffer.data[jointsBufferView.byteOffset + jointsAccessor.byteOffset]);
+
+                    for (size_t i = 0; i < vertexCount; ++i) {
+                        vertices[i].position = glm::make_vec3(&positionData[i * 3]);
+                        vertices[i].normal = glm::make_vec3(&normalData[i * 3]);
+                        vertices[i].texCoord = glm::make_vec2(&texCoordData[i * 2]);
+                        vertices[i].weights = glm::make_vec4(&weightsData[i * 4]);
+                        vertices[i].joints = glm::ivec4(
+                            static_cast<int>(jointsData[i * 4]),
+                            static_cast<int>(jointsData[i * 4 + 1]),
+                            static_cast<int>(jointsData[i * 4 + 2]),
+                            static_cast<int>(jointsData[i * 4 + 3])
+                        );
+                    }
+                }
+                else {
+                    std::cerr << "Unsupported joint component type: " << jointsAccessor.componentType << std::endl;
                 }
 
                 verticesPerMesh[meshIndex].insert(verticesPerMesh[meshIndex].end(), vertices.begin(), vertices.end());
@@ -260,6 +354,83 @@ void GLTFSkeleton::loadVertices() {
     }
 }
 
+
 const std::unordered_map<int, std::vector<Vertex>>& GLTFSkeleton::getVertices() const {
     return verticesPerMesh;
+}
+
+void GLTFSkeleton::applySkinning() {
+    for (auto& meshPair : verticesPerMesh) {
+        auto& vertices = meshPair.second;
+
+        for (auto& vertex : vertices) {
+            glm::vec4 skinnedPosition(0.0f);
+            glm::vec4 skinnedNormal(0.0f);
+
+            for (int i = 0; i < 4; ++i) {
+                if (vertex.weights[i] > 0.0f) {
+                    int jointIndex = vertex.joints[i];
+                   // std::cout << "Vertex joint index [" << i << "]: " << jointIndex << std::endl;
+                    if (jointIndex < 0 || jointIndex >= jointMatrices.size()) {
+                       // std::cerr << "Invalid joint index: " << jointIndex << std::endl;
+                        continue;
+                    }
+                    const glm::mat4& jointMatrix = jointMatrices[jointIndex];
+
+                    // Output the joint matrix
+                    //std::cout << "Joint Matrix for index [" << jointIndex << "]:" << std::endl;
+                    for (int row = 0; row < 4; ++row) {
+                        for (int col = 0; col < 4; ++col) {
+                           // std::cout << jointMatrix[row][col] << " ";
+                        }
+                      //  std::cout << std::endl;
+                    }
+
+                    skinnedPosition += jointMatrix * glm::vec4(vertex.position, 1.0f) * vertex.weights[i];
+                    skinnedNormal += jointMatrix * glm::vec4(vertex.normal, 0.0f) * vertex.weights[i];
+                }
+            }
+
+            vertex.position = glm::vec3(skinnedPosition);
+            vertex.normal = glm::normalize(glm::vec3(skinnedNormal));
+        }
+    }
+}
+
+void GLTFSkeleton::validateJointIndices() {
+    for (const auto& meshPair : verticesPerMesh) {
+        int totalErrors = 0;
+        const auto& vertices = meshPair.second;
+
+        for (size_t i = 0; i < vertices.size(); ++i) {
+            const auto& vertex = vertices[i];
+            float weightSum = vertex.weights[0] + vertex.weights[1] + vertex.weights[2] + vertex.weights[3];
+
+            for (int j = 0; j < 4; ++j) {
+                if (vertex.weights[j] > 0.0f) { // 4 influenced joints
+                    int jointIndex = vertex.joints[j];
+                    if (jointIndex >= bones.size()) {
+                        totalErrors++;
+                        //std::cerr << "Invalid joint index: " << jointIndex << " in vertex data at vertex " << i << ", joint " << j << std::endl;
+                        //std::cerr << "Joints: " << vertex.joints[0] << ", " << vertex.joints[1] << ", " << vertex.joints[2] << ", " << vertex.joints[3] << std::endl;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+void GLTFSkeleton::checkSkinJoints(const auto& skin) {
+    const auto& nodes = nodeManager.getNodes();
+
+    for (size_t i = 0; i < skin.joints.size(); ++i) {
+        int jointIndex = skin.joints[i];
+        if (jointIndex >= bones.size()) {
+            std::cerr << "Invalid joint index in skin: " << jointIndex << ", exceeds bone size: " << bones.size() << std::endl;
+        }
+        else {
+            std::cout << "Valid joint index in skin: " << jointIndex << ", bone name: " << bones[jointIndex].name << std::endl;
+        }
+    }
 }

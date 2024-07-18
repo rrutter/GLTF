@@ -2,6 +2,12 @@
 #define GLTF_SKELETON_H
 #define GLM_ENABLE_EXPERIMENTAL
 
+// Define constants for type checking
+#define TYPE_SCALAR "SCALAR"
+#define TYPE_VEC2 "VEC2"
+#define TYPE_VEC3 "VEC3"
+#define TYPE_VEC4 "VEC4"
+
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -44,6 +50,9 @@ public:
     void printDebugBoneTransform() const;
     void loadVertices();
     const std::unordered_map<int, std::vector<Vertex>>& getVertices() const;
+    void applySkinning();
+    void validateJointIndices();
+    void checkSkinJoints(const auto& skin);
     void initializeSkeleton();
 
     void parseSkin(const auto skin);

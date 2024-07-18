@@ -1,6 +1,0 @@
-﻿  GLTFSkeleton.cpp
-C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\GLTFSkeleton.cpp(11,25): warning C4018: '>=': signed/unsigned mismatch
-C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\GLTFSkeleton.cpp(203,47): warning C4018: '<': signed/unsigned mismatch
-  GLTFLoader.vcxproj -> C:\Users\Russ\source\repos\GLTFLoader\Debug\GLTFLoader.exe
-  'pwsh.exe' is not recognized as an internal or external command,
-  operable program or batch file.

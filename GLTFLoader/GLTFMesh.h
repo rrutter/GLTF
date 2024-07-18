@@ -66,7 +66,7 @@ private:
     void parseMorphTarget(MorphTarget& morphTarget, yyjson_val* morph_val);
     void printMeshInfo(const Mesh& mesh, size_t index) const;
     void printSkinInfo(const Skin& skin, size_t index) const;
-    bool showDebug = false;
+    bool showDebug = true;
 };
 
 
