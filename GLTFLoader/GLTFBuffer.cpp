@@ -1,4 +1,5 @@
 #include "GLTFBuffer.h"
+#include "PersonalGL.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -268,27 +269,112 @@ std::vector<glm::vec4> GLTFBuffer::getColors(const GLTFAccessor::Accessor& acces
     return colors;
 }
 
-std::vector<glm::vec4> GLTFBuffer::getJoints(const GLTFAccessor::Accessor& accessor) const {
-    const auto& bufferView = bufferViews[accessor.bufferView];
-    const auto& buffer = buffers[bufferView.buffer];
-    const float* data = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
-
-    std::vector<glm::vec4> joints;
-    for (size_t i = 0; i < accessor.count; ++i) {
-        glm::vec4 joint(data[i * 4], data[i * 4 + 1], data[i * 4 + 2], data[i * 4 + 3]);
-        joints.push_back(joint);
+std::vector<glm::vec4> GLTFBuffer::getJoints(const GLTFAccessor::Accessor& jointsAccessor) const {
+    size_t numComponents;
+    std::string accessorType(jointsAccessor.type);
+    if (accessorType == "SCALAR") {
+        numComponents = 1;
     }
+    else if (accessorType == "VEC2") {
+        numComponents = 2;
+    }
+    else if (accessorType == "VEC3") {
+        numComponents = 3;
+    }
+    else if (accessorType == "VEC4") {
+        numComponents = 4;
+    }
+    else {
+        throw std::runtime_error("Unsupported accessor type for joints");
+    }
+
+    const auto& jointsBufferView = bufferViews[jointsAccessor.bufferView];
+    const auto& jointsBuffer = buffers[jointsBufferView.buffer];
+
+    size_t jointComponentSize = 1; // Default for GL_UNSIGNED_BYTE
+    if (jointsAccessor.componentType == GL_UNSIGNED_SHORT) {
+        jointComponentSize = 2;
+    }
+    else if (jointsAccessor.componentType != GL_UNSIGNED_BYTE) {
+        throw std::runtime_error("Unsupported joint component type");
+    }
+
+    size_t jointByteStride = jointsBufferView.byteStride == 0 ? numComponents * jointComponentSize : jointsBufferView.byteStride;
+
+    std::vector<glm::vec4> joints(jointsAccessor.count);
+
+    if (jointsAccessor.componentType == GL_UNSIGNED_BYTE) {
+        const uint8_t* jointsData = reinterpret_cast<const uint8_t*>(&jointsBuffer.data[jointsBufferView.byteOffset + jointsAccessor.byteOffset]);
+        for (size_t i = 0; i < jointsAccessor.count; ++i) {
+            glm::vec4 joint(0.0f);
+            for (size_t j = 0; j < numComponents; ++j) {
+                joint[j] = static_cast<float>(jointsData[i * jointByteStride + j]);
+            }
+            joints[i] = joint;
+        }
+    }
+    else if (jointsAccessor.componentType == GL_UNSIGNED_SHORT) {
+        const uint16_t* jointsData = reinterpret_cast<const uint16_t*>(&jointsBuffer.data[jointsBufferView.byteOffset + jointsAccessor.byteOffset]);
+        for (size_t i = 0; i < jointsAccessor.count; ++i) {
+            glm::vec4 joint(0.0f);
+            for (size_t j = 0; j < numComponents; ++j) {
+                joint[j] = static_cast<float>(jointsData[i * jointByteStride / jointComponentSize + j]);
+            }
+            joints[i] = joint;
+        }
+    }
+
     return joints;
 }
+
 
 std::vector<glm::vec4> GLTFBuffer::getWeights(const GLTFAccessor::Accessor& accessor) const {
     const auto& bufferView = bufferViews[accessor.bufferView];
     const auto& buffer = buffers[bufferView.buffer];
-    const float* data = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
 
+    size_t numComponents;
+    std::string accessorType(accessor.type);
+    if (accessorType == "SCALAR") {
+        numComponents = 1;
+    }
+    else if (accessorType == "VEC2") {
+        numComponents = 2;
+    }
+    else if (accessorType == "VEC3") {
+        numComponents = 3;
+    }
+    else if (accessorType == "VEC4") {
+        numComponents = 4;
+    }
+    else {
+        throw std::runtime_error("Unsupported accessor type for weights");
+    }
+
+    size_t weightComponentSize = 4; // GL_FLOAT is 4 bytes
+    if ((accessor.byteOffset % weightComponentSize != 0) ||
+        ((accessor.byteOffset + bufferView.byteOffset) % weightComponentSize != 0)) {
+        throw std::runtime_error("Byte offset is not aligned with component size.");
+    }
+
+    size_t weightByteStride = bufferView.byteStride == 0 ? numComponents * weightComponentSize : bufferView.byteStride;
+    if (weightByteStride % weightComponentSize != 0) {
+        throw std::runtime_error("Byte stride is not a multiple of component size.");
+    }
+
+    size_t expectedWeightSize = accessor.byteOffset + weightByteStride * (accessor.count - 1) + weightComponentSize * numComponents;
+    if (expectedWeightSize > bufferView.byteLength) {
+        throw std::runtime_error("Accessor does not fit within the buffer view.");
+    }
+
+    const float* weightsData = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
     std::vector<glm::vec4> weights;
+    weights.reserve(accessor.count);
+
     for (size_t i = 0; i < accessor.count; ++i) {
-        glm::vec4 weight(data[i * 4], data[i * 4 + 1], data[i * 4 + 2], data[i * 4 + 3]);
+        glm::vec4 weight(0.0f);
+        for (size_t j = 0; j < numComponents; ++j) {
+            weight[j] = weightsData[i * weightByteStride / weightComponentSize + j];
+        }
         weights.push_back(weight);
     }
     return weights;

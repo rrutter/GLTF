@@ -108,7 +108,7 @@ void loadTestAssets() { // temporary until a more robust resource manager is bui
 	try {
 		gltf.loadModel(ASSETS_DIRECTORY "soldier.glb"); //load GLTF
 		gltf.initialize();
-		gltf.setAnimation("Walk"); //Walk, TPose, Idle, Run
+		gltf.setAnimation("TPose"); //Walk, TPose, Idle, Run
 	}
 	catch (const std::exception& e) {
 		std::cerr << "Error: " << e.what() << std::endl;
