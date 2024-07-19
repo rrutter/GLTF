@@ -40,13 +40,10 @@ void GLTFSkeleton::initializeSkeleton() {
     for (const auto& skin : skins) {
         parseSkin(skin);
     }
-    //checkInverseBindMatrices();
     loadVertices();
     jointMatrices.resize(bones.size());
     normalizeWeights();
     calculateBoneTransforms();
-    //validateJointIndices();
-    //applySkinning();
 }
 
 void GLTFSkeleton::parseSkin(const auto skin) {
@@ -208,7 +205,7 @@ const std::unordered_map<int, std::vector<Vertex>>& GLTFSkeleton::getVertices() 
     return verticesPerMesh;
 }
 
-void GLTFSkeleton::applySkinning() {
+void GLTFSkeleton::applySkinning() { //only do this once. super shit performance hit if you do it in the update loop
     for (auto& meshPair : verticesPerMesh) {
         auto& vertices = meshPair.second;
 
