@@ -41,6 +41,9 @@ void updateFPS()
 		SYS.SET_FPS(fps);
 		frameCount = 0;
 		elapsedTime = 0;
+
+		std::string windowTitle = "Your Application Title - FPS: " + std::to_string(fps);
+		glutSetWindowTitle(windowTitle.c_str());
 	}
 	lastTime = currentTime;
 

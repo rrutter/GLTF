@@ -40,12 +40,12 @@ void GLTFSkeleton::initializeSkeleton() {
     for (const auto& skin : skins) {
         parseSkin(skin);
     }
-    checkInverseBindMatrices();
+    //checkInverseBindMatrices();
     loadVertices();
     jointMatrices.resize(bones.size());
     normalizeWeights();
     calculateBoneTransforms();
-    validateJointIndices();
+    //validateJointIndices();
     //applySkinning();
 }
 
@@ -120,7 +120,7 @@ void GLTFSkeleton::calculateBoneTransforms() {
 
 void GLTFSkeleton::updateSkeleton(const std::vector<GLTFNode::Node>& nodes) {
     calculateBoneTransforms();
-    applySkinning();
+    //applySkinning();
 }
 
 const std::vector<glm::mat4>& GLTFSkeleton::getJointMatrices() const {
