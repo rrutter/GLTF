@@ -76,7 +76,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\glew86\include;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\yyjson_x86-windows\include;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\libpng86\include;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\glm86\include;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\freeglut\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\glew86\lib;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\yyjson_x86-windows\debug\lib;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\libpng86\debug\lib;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\freeglut\lib\Win32;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\glm86\lib;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\glew86\lib;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\yyjson_x86-windows\debug\lib;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\libpng86\debug\lib;C:\Users\Russ\source\repos\GLTFLoader\GLTFLoader\Dependencies\freeglut\lib\Win32;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

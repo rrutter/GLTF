@@ -16,6 +16,7 @@ public:
         glm::quat rotation;
         glm::vec3 scale;
         int meshIndex;
+        int parentIndex;
         int index;
         std::vector<int> children;
         std::string name;
@@ -35,7 +36,9 @@ public:
     int findParentNodeIndex(int nodeIndex) const;
     std::vector<int> getRootNodes() const;
     std::vector<int> getChildNodes(int nodeIndex) const;
-    glm::mat4 getGlobalTransform(int nodeIndex) const;
+    void calculateGlobalTransforms();
+    void calculateGlobalTransform(size_t nodeIndex, const glm::mat4& parentTransform, std::vector<glm::mat4>& globalTransforms);
+    const glm::mat4& getGlobalTransform(size_t nodeIndex) const;
     void updateNodeTransformation(Node& node);
 
     // New getter and setter methods
@@ -48,7 +51,9 @@ public:
 
 private:
     std::vector<Node> nodes;
+    std::vector<glm::mat4> globalTransforms;
     void printNodeInfo(const Node& node, size_t index) const;
+    void updateGlobalTransforms();
     bool showDebug = false;
 };
 

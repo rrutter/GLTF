@@ -1,5 +1,6 @@
 #include "GLTFNode.h"
 #include <iostream>
+#include <glm/gtx/string_cast.hpp> // For glm::to_string
 
 void GLTFNode::parseNodes(yyjson_val* nodesArray) {
     size_t idx, max;
@@ -41,7 +42,6 @@ void GLTFNode::parseNodes(yyjson_val* nodesArray) {
             if (node.scale.z == 0.0f) node.scale.z = 1.0f;
         }
 
-
         yyjson_val* mesh_val = yyjson_obj_get(node_val, "mesh");
         if (mesh_val) {
             node.meshIndex = yyjson_get_int(mesh_val);
@@ -71,20 +71,57 @@ void GLTFNode::parseNodes(yyjson_val* nodesArray) {
             node.extras = extras_val;
         }
 
-        if(showDebug)printNodeInfo(node, idx);
+        if (showDebug) printNodeInfo(node, idx);
         nodes.push_back(node);
     }
 
     identifyRootNodes(); // Call to identify root nodes after parsing
+    calculateGlobalTransforms();
 }
 
 void GLTFNode::identifyRootNodes() {
-    for (size_t i = 0; i < nodes.size(); ++i) {
-        for (int child : nodes[i].children) {
-            nodes[child].isRoot = false; // Mark children as non-root
+    // Reset all nodes to be root initially
+    for (auto& node : nodes) {
+        node.isRoot = true;
+        node.parentIndex = -1; // Initialize parent index to -1 (no parent)
+    }
+
+    // Iterate over all nodes and update root status and parent index
+    for (auto& node : nodes) {
+        for (int childIndex : node.children) {
+            nodes[childIndex].isRoot = false;
+            nodes[childIndex].parentIndex = node.index; // Set parent index
         }
     }
 }
+
+void GLTFNode::calculateGlobalTransforms() {
+    globalTransforms.resize(nodes.size(), glm::mat4(1.0f));
+
+    // Calculate global transforms for root nodes first
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        if (nodes[i].isRoot) {
+            calculateGlobalTransform(i, glm::mat4(1.0f), globalTransforms);
+        }
+    }
+
+    // Debugging: Print global transforms and parent-child relationships
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        const Node& node = nodes[i];
+        glm::mat4 localTransform = glm::translate(glm::mat4(1.0f), node.translation) *
+            glm::mat4_cast(node.rotation) *
+            glm::scale(glm::mat4(1.0f), node.scale);
+
+        std::cout << "Node " << i << " local transform: " << glm::to_string(localTransform) << std::endl;
+        std::cout << "Node " << i << " global transform: " << glm::to_string(globalTransforms[i]) << std::endl;
+
+        if (!node.isRoot) {
+            std::cout << "Parent node " << node.parentIndex << " global transform: " << glm::to_string(globalTransforms[node.parentIndex]) << std::endl;
+        }
+    }
+}
+
+
 
 void GLTFNode::identifyBones(const std::vector<int>& joints) {
     for (int joint : joints) {
@@ -99,8 +136,6 @@ glm::mat4 GLTFNode::getNodeTransform(const Node& node) const {
     glm::mat4 rotation = glm::mat4_cast(node.rotation);
     glm::mat4 scale = glm::scale(glm::mat4(1.0f), node.scale);
     glm::mat4 transform = translation * rotation * scale;
-
-   // std::cout << "Node Index: " << node.index << ", Transform: " << glm::to_string(transform) << std::endl; //index is undefined
 
     return transform;
 }
@@ -133,15 +168,21 @@ std::vector<int> GLTFNode::getChildNodes(int nodeIndex) const {
     return std::vector<int>();
 }
 
-glm::mat4 GLTFNode::getGlobalTransform(int nodeIndex) const {
-    glm::mat4 transform = glm::mat4(1.0f);
-    int currentIndex = nodeIndex;
-    while (currentIndex >= 0) {
-        const auto& node = nodes[currentIndex];
-        transform = getNodeTransform(node) * transform;
-        currentIndex = findParentNodeIndex(currentIndex);
+void GLTFNode::calculateGlobalTransform(size_t nodeIndex, const glm::mat4& parentTransform, std::vector<glm::mat4>& globalTransforms) {
+    const Node& node = nodes[nodeIndex];
+    glm::mat4 localTransform = getNodeTransform(node);
+    glm::mat4 globalTransform = parentTransform * localTransform;
+
+    globalTransforms[nodeIndex] = globalTransform;
+
+    // Recursively calculate global transforms for child nodes
+    for (size_t childIndex : node.children) {
+        calculateGlobalTransform(childIndex, globalTransform, globalTransforms);
     }
-    return transform;
+}
+
+const glm::mat4& GLTFNode::getGlobalTransform(size_t nodeIndex) const {
+    return globalTransforms[nodeIndex];
 }
 
 void GLTFNode::updateNodeTransformation(Node& node) {
@@ -151,7 +192,7 @@ void GLTFNode::updateNodeTransformation(Node& node) {
         updateNodeTransformation(nodes[childIndex]);
     }
     // Debug output to verify node transformation
-  //  std::cout << "Node: " << node.name << ", Transformation: " << glm::to_string(node.transformation) << std::endl;
+    // std::cout << "Node: " << node.name << ", Transformation: " << glm::to_string(node.transformation) << std::endl;
 }
 
 void GLTFNode::printNodeInfo(const Node& node, size_t index) const {

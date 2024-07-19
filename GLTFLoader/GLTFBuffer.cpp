@@ -301,7 +301,6 @@ std::vector<glm::vec4> GLTFBuffer::getJoints(const GLTFAccessor::Accessor& joint
             joints[i] = joint;
         }
     }
-
     return joints;
 }
 

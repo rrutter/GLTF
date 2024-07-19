@@ -1,7 +1,7 @@
 #include "GLTFSkeleton.h"
 #include "PersonalGL.h"
 
-GLTFSkeleton::GLTFSkeleton(const GLTFMesh& meshManager, const GLTFNode& nodeManager, const GLTFAccessor& accessorManager, GLTFBuffer& bufferManager)
+GLTFSkeleton::GLTFSkeleton(const GLTFMesh& meshManager, GLTFNode& nodeManager, const GLTFAccessor& accessorManager, GLTFBuffer& bufferManager)
     : meshManager(meshManager), nodeManager(nodeManager), accessorManager(accessorManager), bufferManager(bufferManager) {
     initializeSkeleton();
 }
@@ -20,7 +20,7 @@ void GLTFSkeleton::addBone(int nodeIndex, int parentIndex, const glm::mat4& inve
     bones.push_back(bone);
 }
 
-void GLTFSkeleton::loadInverseBindMatrices() {
+void GLTFSkeleton::loadInverseBindMatrices() { //verified and working correctly! (might be an issue with 2nd skin though)
     const auto& skins = meshManager.getSkins();
     for (const auto& skin : skins) {
         if (skin.inverseBindMatricesAccessor < 0) continue;
@@ -30,18 +30,6 @@ void GLTFSkeleton::loadInverseBindMatrices() {
 
         // Accumulate the inverse bind matrices for each skin
         inverseBindMatrices.insert(inverseBindMatrices.end(), matrices.begin(), matrices.end());
-
-        // Debug output for matrix data
-        for (size_t i = 0; i < matrices.size(); ++i) {
-            std::cout << "Matrix " << i << " offset: " << i * sizeof(glm::mat4) << std::endl;
-            std::cout << "Matrix " << i << ":" << std::endl;
-            for (int row = 0; row < 4; ++row) {
-                for (int col = 0; col < 4; ++col) {
-                    std::cout << matrices[i][row][col] << " ";
-                }
-                std::cout << std::endl;
-            }
-        }
     }
 }
 
@@ -57,9 +45,8 @@ void GLTFSkeleton::initializeSkeleton() {
     jointMatrices.resize(bones.size());
     normalizeWeights();
     calculateBoneTransforms();
-    calculateJointMatrices();
     validateJointIndices();
-    applySkinning();
+    //applySkinning();
 }
 
 void GLTFSkeleton::parseSkin(const auto skin) {
@@ -119,26 +106,21 @@ void GLTFSkeleton::calculateBoneTransforms() {
         Bone& bone = bones[i];
         bone.transform = nodeManager.getNodeTransform(nodeManager.getNodes()[bone.nodeIndex]);
 
-        int parentIndex = bone.parentIndex;
-        if (parentIndex >= 0) {
-            bone.globalTransform = bones[parentIndex].globalTransform * bone.transform;
+        if (bone.parentIndex >= 0) {
+            bone.globalTransform = bones[bone.parentIndex].globalTransform * bone.transform;
         }
         else {
-            bone.globalTransform = bone.transform; // Root node's global transform is its own transform
+            bone.globalTransform = bone.transform;
         }
-    }
-}
 
-void GLTFSkeleton::calculateJointMatrices() {
-    for (size_t i = 0; i < bones.size(); ++i) {
-        jointMatrices[i] = bones[i].globalTransform * bones[i].inverseBindMatrix;
+        // Apply the inverse bind matrix
+        jointMatrices[i] = bone.globalTransform * bone.inverseBindMatrix;
     }
 }
 
 void GLTFSkeleton::updateSkeleton(const std::vector<GLTFNode::Node>& nodes) {
     calculateBoneTransforms();
-    calculateJointMatrices();
-   // applySkinning();
+    applySkinning();
 }
 
 const std::vector<glm::mat4>& GLTFSkeleton::getJointMatrices() const {
@@ -162,7 +144,7 @@ const std::vector<glm::vec4>& GLTFSkeleton::getWeights() const {
     return weights;
 }
 
-void GLTFSkeleton::normalizeWeights() {
+void GLTFSkeleton::normalizeWeights() { //confirmed weights are correctly parsed
     for (auto& meshPair : verticesPerMesh) {
         auto& meshVertices = meshPair.second;
         for (auto& vertex : meshVertices) {
@@ -170,24 +152,8 @@ void GLTFSkeleton::normalizeWeights() {
             if (totalWeight > 0.0f) {
                 vertex.weights /= totalWeight;
             }
+            //std::cout << vertex.weights[0] << " " << vertex.weights[1] << " " << vertex.weights[2] << " " << vertex.weights[3] << std::endl;
         }
-    }
-}
-
-void GLTFSkeleton::printSkeleton() const {
-    for (size_t i = 0; i < bones.size(); ++i) {
-        const auto& bone = bones[i];
-        std::cout << "Bone Index: " << i << ", Name: " << bone.name << ", Node Index: " << bone.nodeIndex
-            << ", Parent Index: " << bone.parentIndex << std::endl;
-        if (bone.parentIndex >= 0) {
-            std::cout << "Parent Bone Name: " << bones[bone.parentIndex].name << std::endl;
-        }
-        std::cout << "Inverse Bind Matrix: " << glm::to_string(bone.inverseBindMatrix) << std::endl;
-        std::cout << "Global Transform: " << glm::to_string(bone.globalTransform) << std::endl;
-        for (int child : bone.children) {
-            std::cout << "  Child Bone Index: " << child << " (Name: " << bones[child].name << ")" << std::endl;
-        }
-        std::cout << "Joint Matrix: " << glm::to_string(jointMatrices[i]) << std::endl;
     }
 }
 
@@ -246,7 +212,7 @@ void GLTFSkeleton::applySkinning() {
     for (auto& meshPair : verticesPerMesh) {
         auto& vertices = meshPair.second;
 
-        std::cout << "applying skinning to mesh!" << std::endl;
+        //std::cout << "applying skinning to mesh!" << std::endl;
         for (auto& vertex : vertices) {
             glm::vec4 skinnedPosition(0.0f);
             glm::vec4 skinnedNormal(0.0f);
@@ -295,20 +261,6 @@ void GLTFSkeleton::validateJointIndices() {
                     }
                 }
             }
-        }
-    }
-}
-
-void GLTFSkeleton::checkSkinJoints(const auto& skin) {
-    const auto& nodes = nodeManager.getNodes();
-
-    for (size_t i = 0; i < skin.joints.size(); ++i) {
-        int jointIndex = skin.joints[i];
-        if (jointIndex >= bones.size()) {
-            std::cerr << "Invalid joint index in skin: " << jointIndex << ", exceeds bone size: " << bones.size() << std::endl;
-        }
-        else {
-            std::cout << "Valid joint index in skin: " << jointIndex << ", bone name: " << bones[jointIndex].name << std::endl;
         }
     }
 }

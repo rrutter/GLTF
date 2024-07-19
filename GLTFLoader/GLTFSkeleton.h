@@ -36,7 +36,7 @@ public:
         std::vector<int> children;
     };
 
-    GLTFSkeleton(const GLTFMesh& meshManager, const GLTFNode& nodeManager, const GLTFAccessor& accessorManager, GLTFBuffer& bufferManager);
+    GLTFSkeleton(const GLTFMesh& meshManager, GLTFNode& nodeManager, const GLTFAccessor& accessorManager, GLTFBuffer& bufferManager);
 
     const Bone& getBone(int index) const;
     const std::vector<Bone>& getBones() const;
@@ -44,16 +44,13 @@ public:
     const std::vector<glm::mat4>& getJointMatrices() const;
 
     void updateSkeleton(const std::vector<GLTFNode::Node>& nodes);
-    void calculateJointMatrices();
+   // void calculateJointMatrices();
 
     void printSkeleton() const;
-    void printDebugBoneTransform() const;
     void loadVertices();
     const std::unordered_map<int, std::vector<Vertex>>& getVertices() const;
     void applySkinning();
     void validateJointIndices();
-    void checkSkinJoints(const auto& skin);
-    size_t getNumComponents(const std::string& accessorType) const;
     void initializeSkeleton();
 
     void parseSkin(const auto skin);
@@ -62,7 +59,7 @@ public:
 
 private:
     const GLTFMesh& meshManager;
-    const GLTFNode& nodeManager;
+    GLTFNode& nodeManager;
     const GLTFAccessor& accessorManager;
     GLTFBuffer& bufferManager;
     std::vector<Bone> bones;
