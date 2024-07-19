@@ -8,6 +8,13 @@
 #include <glm/glm.hpp>
 #include "yyjson.h"
 #include "GLTFAccessor.h"
+#include "PersonalGL.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <cstring>
+#include <glm/gtc/type_ptr.hpp>
 
 class GLTFBuffer {
 public:
@@ -39,6 +46,7 @@ public:
     std::vector<glm::vec4> getColors(const GLTFAccessor::Accessor& accessor) const;
     std::vector<glm::vec4> getJoints(const GLTFAccessor::Accessor& accessor) const;
     std::vector<glm::vec4> getWeights(const GLTFAccessor::Accessor& accessor) const;
+    std::vector<glm::mat4> getInverseBindMatrices(const GLTFAccessor::Accessor& accessor) const;
     std::vector<float> getAccessorDataFloat(const GLTFAccessor::Accessor& accessor) const;
     std::vector<glm::vec3> getAccessorDataVec3(const GLTFAccessor::Accessor& accessor) const;
     std::vector<glm::quat> getAccessorDataQuat(const GLTFAccessor::Accessor& accessor) const;
@@ -50,6 +58,7 @@ private:
     void loadBufferData(Buffer& buffer, const std::string& basePath);
     void printBufferInfo(const Buffer& buffer, size_t index) const;
     void printBufferViewInfo(const BufferView& bufferView, size_t index) const;
+    size_t getNumComponents(const std::string& accessorType) const;
     bool showDebug = false;
 };
 

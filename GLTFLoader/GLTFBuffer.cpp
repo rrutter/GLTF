@@ -1,10 +1,4 @@
 #include "GLTFBuffer.h"
-#include "PersonalGL.h"
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <stdexcept>
-#include <cstring>
 
 void GLTFBuffer::parseBuffers(yyjson_val* buffersArray, const std::string& basePath) {
     size_t idx, max;
@@ -270,23 +264,7 @@ std::vector<glm::vec4> GLTFBuffer::getColors(const GLTFAccessor::Accessor& acces
 }
 
 std::vector<glm::vec4> GLTFBuffer::getJoints(const GLTFAccessor::Accessor& jointsAccessor) const {
-    size_t numComponents;
-    std::string accessorType(jointsAccessor.type);
-    if (accessorType == "SCALAR") {
-        numComponents = 1;
-    }
-    else if (accessorType == "VEC2") {
-        numComponents = 2;
-    }
-    else if (accessorType == "VEC3") {
-        numComponents = 3;
-    }
-    else if (accessorType == "VEC4") {
-        numComponents = 4;
-    }
-    else {
-        throw std::runtime_error("Unsupported accessor type for joints");
-    }
+    size_t numComponents = getNumComponents(jointsAccessor.type);
 
     const auto& jointsBufferView = bufferViews[jointsAccessor.bufferView];
     const auto& jointsBuffer = buffers[jointsBufferView.buffer];
@@ -327,28 +305,11 @@ std::vector<glm::vec4> GLTFBuffer::getJoints(const GLTFAccessor::Accessor& joint
     return joints;
 }
 
-
 std::vector<glm::vec4> GLTFBuffer::getWeights(const GLTFAccessor::Accessor& accessor) const {
+    size_t numComponents = getNumComponents(accessor.type);
+
     const auto& bufferView = bufferViews[accessor.bufferView];
     const auto& buffer = buffers[bufferView.buffer];
-
-    size_t numComponents;
-    std::string accessorType(accessor.type);
-    if (accessorType == "SCALAR") {
-        numComponents = 1;
-    }
-    else if (accessorType == "VEC2") {
-        numComponents = 2;
-    }
-    else if (accessorType == "VEC3") {
-        numComponents = 3;
-    }
-    else if (accessorType == "VEC4") {
-        numComponents = 4;
-    }
-    else {
-        throw std::runtime_error("Unsupported accessor type for weights");
-    }
 
     size_t weightComponentSize = 4; // GL_FLOAT is 4 bytes
     if ((accessor.byteOffset % weightComponentSize != 0) ||
@@ -378,6 +339,31 @@ std::vector<glm::vec4> GLTFBuffer::getWeights(const GLTFAccessor::Accessor& acce
         weights.push_back(weight);
     }
     return weights;
+}
+
+std::vector<glm::mat4> GLTFBuffer::getInverseBindMatrices(const GLTFAccessor::Accessor& accessor) const {
+    std::vector<glm::mat4> matrices;
+
+    if (accessor.bufferView < 0 || accessor.bufferView >= bufferViews.size()) {
+        std::cerr << "Error: Invalid bufferView index in accessor." << std::endl;
+        return matrices;
+    }
+
+    const BufferView& bufferView = bufferViews[accessor.bufferView];
+    const Buffer& buffer = buffers[bufferView.buffer];
+
+    size_t componentSize = 4 * 4 * sizeof(float); // size of a 4x4 matrix
+    size_t byteStride = bufferView.byteStride == 0 ? componentSize : bufferView.byteStride;
+
+    const float* data = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+
+    for (size_t i = 0; i < accessor.count; ++i) {
+        const float* matrixData = reinterpret_cast<const float*>(data + i * byteStride / sizeof(float));
+        glm::mat4 matrix = glm::make_mat4(matrixData);
+        matrices.push_back(matrix);
+    }
+
+    return matrices;
 }
 
 std::vector<float> GLTFBuffer::getAccessorDataFloat(const GLTFAccessor::Accessor& accessor) const {
@@ -438,4 +424,12 @@ std::vector<glm::quat> GLTFBuffer::getAccessorDataQuat(const GLTFAccessor::Acces
     std::memcpy(data.data(), buffer.data.data() + byteOffset, count * sizeof(glm::quat));
 
     return data;
+}
+
+size_t GLTFBuffer::getNumComponents(const std::string& accessorType) const {
+    if (accessorType == "SCALAR") return 1;
+    if (accessorType == "VEC2") return 2;
+    if (accessorType == "VEC3") return 3;
+    if (accessorType == "VEC4") return 4;
+    throw std::runtime_error("Unsupported accessor type");
 }

@@ -41,7 +41,6 @@ public:
     const Bone& getBone(int index) const;
     const std::vector<Bone>& getBones() const;
     glm::mat4 getGlobalBoneTransform(int boneIndex) const;
-    glm::mat4 getBoneTransform(int boneIndex) const;
     const std::vector<glm::mat4>& getJointMatrices() const;
 
     void updateSkeleton(const std::vector<GLTFNode::Node>& nodes);
@@ -55,8 +54,6 @@ public:
     void validateJointIndices();
     void checkSkinJoints(const auto& skin);
     size_t getNumComponents(const std::string& accessorType) const;
-    void loadJoints(const GLTFAccessor::Accessor& accessor, const GLTFBuffer::BufferView& bufferView, const GLTFBuffer::Buffer& buffer, std::vector<Vertex>& vertices, size_t numComponents);
-    void loadWeights(const GLTFAccessor::Accessor& accessor, const GLTFBuffer::BufferView& bufferView, const GLTFBuffer::Buffer& buffer, std::vector<Vertex>& vertices, size_t numComponents);
     void initializeSkeleton();
 
     void parseSkin(const auto skin);
@@ -70,7 +67,6 @@ private:
     GLTFBuffer& bufferManager;
     std::vector<Bone> bones;
     std::vector<glm::vec4> weights;
-    int debugBoneIndex = 10; // Index of the bone to debug
 
     std::vector<glm::mat4> inverseBindMatrices;
     void addBone(int nodeIndex, int parentIndex, const glm::mat4& inverseBindMatrix, const std::string& name);
@@ -82,7 +78,6 @@ private:
     void normalizeWeights();
     const std::vector<glm::vec4>& getWeights() const;
 
-    void normalizeWeights(std::vector<Vertex>& vertices);
 
     int boneIndex = 0;
     std::unordered_map<int, int> nodeToBoneIndex;

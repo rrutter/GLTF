@@ -26,38 +26,25 @@ void GLTFSkeleton::loadInverseBindMatrices() {
         if (skin.inverseBindMatricesAccessor < 0) continue;
 
         const auto& accessor = accessorManager.getAccessors()[skin.inverseBindMatricesAccessor];
-        const auto& bufferView = bufferManager.getBufferViews()[accessor.bufferView];
-        const auto& buffer = bufferManager.getBuffers()[bufferView.buffer];
+        std::vector<glm::mat4> matrices = bufferManager.getInverseBindMatrices(accessor);
 
-        const float* data = reinterpret_cast<const float*>(&buffer.data[bufferView.byteOffset + accessor.byteOffset]);
+        // Accumulate the inverse bind matrices for each skin
+        inverseBindMatrices.insert(inverseBindMatrices.end(), matrices.begin(), matrices.end());
 
-        std::cout << "Loading inverse bind matrices for skin..." << std::endl;
-        std::cout << "Accessor byte offset: " << accessor.byteOffset << std::endl;
-        std::cout << "Buffer view byte offset: " << bufferView.byteOffset << std::endl;
-        std::cout << "Buffer view byte stride: " << bufferView.byteStride << std::endl;
-        std::cout << "Buffer view byte length: " << bufferView.byteLength << std::endl;
-        std::cout << "Buffer size: " << buffer.data.size() << std::endl;
-
-        size_t componentSize = 4 * 4 * sizeof(float); // size of a 4x4 matrix
-        size_t byteStride = bufferView.byteStride == 0 ? componentSize : bufferView.byteStride;
-
-        for (size_t i = 0; i < accessor.count; ++i) {
-            const float* matrixData = reinterpret_cast<const float*>(data + i * byteStride / sizeof(float));
-            glm::mat4 matrix = glm::make_mat4(matrixData);
-            inverseBindMatrices.push_back(matrix);
-
-            // Debug output for matrix data
-            std::cout << "Matrix " << i << " offset: " << (bufferView.byteOffset + accessor.byteOffset + i * byteStride) << std::endl;
+        // Debug output for matrix data
+        for (size_t i = 0; i < matrices.size(); ++i) {
+            std::cout << "Matrix " << i << " offset: " << i * sizeof(glm::mat4) << std::endl;
             std::cout << "Matrix " << i << ":" << std::endl;
             for (int row = 0; row < 4; ++row) {
                 for (int col = 0; col < 4; ++col) {
-                    std::cout << matrix[row][col] << " ";
+                    std::cout << matrices[i][row][col] << " ";
                 }
                 std::cout << std::endl;
             }
         }
     }
 }
+
 
 void GLTFSkeleton::initializeSkeleton() {
     const auto& skins = meshManager.getSkins();
@@ -204,19 +191,6 @@ void GLTFSkeleton::printSkeleton() const {
     }
 }
 
-void GLTFSkeleton::printDebugBoneTransform() const {
-    if (debugBoneIndex >= 0 && debugBoneIndex < bones.size()) {
-        const auto& bone = bones[debugBoneIndex];
-        std::cout << "Debug Bone Index: " << debugBoneIndex << std::endl;
-        std::cout << "Bone Name: " << bone.name << std::endl;
-        std::cout << "Global Transform: " << glm::to_string(bone.globalTransform) << std::endl;
-        std::cout << "Joint Matrix: " << glm::to_string(jointMatrices[debugBoneIndex]) << std::endl;
-    }
-    else {
-        std::cerr << "Invalid debug bone index: " << debugBoneIndex << std::endl;
-    }
-}
-
 void GLTFSkeleton::loadVertices() {
     const auto& meshes = meshManager.getMeshes();
     for (size_t meshIndex = 0; meshIndex < meshes.size(); ++meshIndex) {
@@ -337,12 +311,4 @@ void GLTFSkeleton::checkSkinJoints(const auto& skin) {
             std::cout << "Valid joint index in skin: " << jointIndex << ", bone name: " << bones[jointIndex].name << std::endl;
         }
     }
-}
-
-size_t GLTFSkeleton::getNumComponents(const std::string& accessorType) const {
-    if (accessorType == "SCALAR") return 1;
-    if (accessorType == "VEC2") return 2;
-    if (accessorType == "VEC3") return 3;
-    if (accessorType == "VEC4") return 4;
-    throw std::runtime_error("Unsupported accessor type");
 }
