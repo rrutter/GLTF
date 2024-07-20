@@ -1,1 +1,1 @@
-This is a simple GLTF viewer for c++ and opengl. only uses yyjson. no tinygltf or anything like that. NOT OPTIMIZED!
+This is a simple GLTF viewer for c++ and opengl. only uses yyjson. no tinygltf or anything like that. It's not optimized for learning purposes. There are some helper methods in the GLTFBuffer (and other classes) that are not utilized.
