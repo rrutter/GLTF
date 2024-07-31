@@ -9,4 +9,5 @@ esc key to quit.
 mouse left click drag to pan around.
 
 There are remnants of my old 3d engine from 20 years ago in here to get it up and running quickly.
+GLTF utilization is in the Gameloop.cpp file.
 Do whatever you want with it.
